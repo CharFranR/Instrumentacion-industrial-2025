@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
+    <title>IceBackUp</title>
+</head>
+<body>
+    <section>
+        <h1>Bienvenidos al proyecto de instrumentación Industrial</h1>
+    </section>
+
+    <!-- Formulario para setpoints -->
+    <section>
+        <form method="POST">
+            <label>
+                Set Temp: <input type="number" name="setTemp" value="{{ setTemp }}">
+            </label>
+            <label>
+                Set Nivel: <input type="number" name="setNivel" value="{{ setNivel }}">
+            </label>
+            <button type="submit">Actualizar</button>
+        </form>
+    </section>
+
+    <!-- Lecturas en tiempo real -->
+    <section>
+        <h3>Lecturas en Tiempo Real</h3>
+        <div id="lecturas" class="lecturas-dashboard">
+            <!-- Termómetro -->
+            <div class="lectura-card termometro">
+                <h4>Temperatura</h4>
+                <div class="termometro-container">
+                    <div class="termometro-mercurio" id="termometro-mercurio"></div>
+                </div>
+                <p id="temp-text">-- °C</p>
+            </div>
+
+            <!-- Caudal -->
+            <div class="lectura-card caudal">
+                <h4>Caudal</h4>
+                <p id="caudal-text">-- L/min</p>
+            </div>
+
+            <!-- Tanque de agua -->
+            <div class="lectura-card tanque">
+                <h4>Nivel</h4>
+                <div class="tanque-container">
+                    <div class="tanque-agua" id="tanque-agua"></div>
+                </div>
+                <p id="nivel-text">-- %</p>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Tabla de registros -->
+    <section>
+        <div style="height:400px; overflow-y:auto; border:1px solid #ccc;">
+            <table border="1" style="width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        {% if registros and registros[0] %}
+                            {% for columna in registros[0].keys() %}
+                                <th>{{ columna }}</th>
+                            {% endfor %}
+                        {% else %}
+                            <th>ID</th>
+                            <th>Temperatura</th>
+                            <th>Caudal</th>
+                            <th>Nivel</th>
+                            <th>Posicion</th>
+                            <th>Paro</th>
+                            <th>Finalizado</th>
+                            <th>Fecha</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody id="tabla-body">
+                    {% if registros %}
+                        {% for registro in registros %}
+                            <tr>
+                                {% for valor in registro.values() %}
+                                    <td>{{ valor }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="8" style="text-align:center;">No hay registros disponibles</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Script para la tabla -->
+    <script>
+        function cargarDatos() {
+            fetch('/datos')
+                .then(res => res.json())
+                .then(data => {
+                    let tbody = document.getElementById("tabla-body");
+                    tbody.innerHTML = "";
+                    data.forEach(row => {
+                        let tr = document.createElement("tr");
+                        tr.innerHTML = `
+                            <td>${row.id}</td>
+                            <td>${row.temperatura}</td>
+                            <td>${row.caudal}</td>
+                            <td>${row.nivel}</td>
+                            <td>${row.posicion}</td>
+                            <td>${row.paro}</td>
+                            <td>${row.finalizado}</td>
+                            <td>${row.fecha}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                });
+        }
+        setInterval(cargarDatos, 500);
+    </script>
+
+    <!-- Script para lecturas en tiempo real -->
+    <script>
+        function actualizarLecturas() {
+            fetch('/datos')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.length === 0) return;
+
+                    let ultimo = data[0];
+
+                    // TEMPERATURA -> termómetro
+                    let temp = ultimo.temperatura;
+                    let tempMax = 100; // máximo esperado
+                    let alturaTemp = Math.min((temp / tempMax) * 100, 100);
+                    document.getElementById("termometro-mercurio").style.height = alturaTemp + "%";
+                    document.getElementById("temp-text").textContent = temp + " °C";
+
+                    // CAUDAL -> texto
+                    document.getElementById("caudal-text").textContent = ultimo.caudal + " L/min";
+
+                    // NIVEL -> tanque de agua
+                    let nivel = ultimo.nivel;
+                    let alturaNivel = Math.min(nivel, 100);
+                    document.getElementById("tanque-agua").style.height = alturaNivel + "%";
+                    document.getElementById("nivel-text").textContent = nivel + " %";
+                });
+        }
+
+        setInterval(actualizarLecturas, 500);
+        actualizarLecturas();
+    </script>
+</body>
+</html>
